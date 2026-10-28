@@ -87,7 +87,7 @@
       const id = button.dataset.project;
       if (!projectNames[id] || !dialog || !fullImage) return;
       lastProjectButton = button;
-      fullImage.src = `${base}portfolio/images%20cases/${id}.png`;
+      fullImage.src = `${base}portfolio/images%20cases/${id}.webp`;
       fullImage.alt = `Полный дизайн сайта ${projectNames[id]}`;
       document.getElementById('project-dialog-title').textContent = projectNames[id];
       dialog.showModal();
