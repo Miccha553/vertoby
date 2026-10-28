@@ -20,6 +20,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           server-dir: /www/verto.by/
+          log-level: verbose
           exclude: |
             **/.git*
             **/.git*/**
