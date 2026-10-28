@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Trigger server-side pull deploy
         run: |
-          response=$(curl -sS -w "\n%{http_code}" "https://verto.by/_deploy.php?token=${{ secrets.DEPLOY_TOKEN }}")
+          response=$(curl -sS -w "\n%{http_code}" "https://verto.by/_deploy.php?token=${{ secrets.DEPLOY_TOKEN }}&sha=${{ github.sha }}")
           body=$(echo "$response" | head -n -1)
           code=$(echo "$response" | tail -n1)
           echo "$body"
