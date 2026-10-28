@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 64" role="img" aria-label="Тексты и разработка">
+  <g fill="none" stroke="#6d4bc3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="3.5" d="M25 33C20 31 16 29 12 27M42 33c4-2 7-4 10-7"/>
+    <circle cx="10" cy="27" r="5" fill="#e8e1f4"/>
+    <path d="M7 23 5 21M10 22l-1-3M13 23l1-2"/>
+    <rect x="48" y="10" width="17" height="24" rx="2" fill="#fff"/>
+    <path d="M52 17h9M52 22h9M52 27h6"/>
+    <circle cx="51" cy="29" r="5" fill="#e8e1f4"/>
+    <path d="M48 25l-1-2M51 24v-3M54 25l2-2"/>
+    <path fill="#6d4bc3" stroke="none" d="M7 8h13l12 31L43 8h14L40 55c-1.2 3-4.1 4.5-8 4.5S25.2 58 24 55L7 8Z"/>
+    <path stroke="#fff" stroke-width="2" d="M15 18h.01M49 18h.01"/>
+    <path d="M27 35 40 27M38 35l7-4"/>
+  </g>
+</svg>
