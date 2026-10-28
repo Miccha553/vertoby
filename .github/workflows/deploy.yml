@@ -1,4 +1,4 @@
-name: Deploy to hosting (FTP)
+name: Deploy to hosting (pull via PHP endpoint)
 
 on:
   push:
@@ -9,19 +9,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Upload via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          server-dir: /www/verto.by/
-          log-level: verbose
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
+      - name: Trigger server-side pull deploy
+        run: |
+          response=$(curl -sS -w "\n%{http_code}" "https://verto.by/_deploy.php?token=${{ secrets.DEPLOY_TOKEN }}")
+          body=$(echo "$response" | head -n -1)
+          code=$(echo "$response" | tail -n1)
+          echo "$body"
+          if [ "$code" != "200" ]; then
+            echo "Deploy endpoint returned HTTP $code"
+            exit 1
+          fi
