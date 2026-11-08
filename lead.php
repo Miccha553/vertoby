@@ -46,7 +46,7 @@ $chat = getenv('VERTO_TELEGRAM_CHAT_ID') ?: ($config['chat_id'] ?? '436390507');
 if (!is_string($token) || !preg_match('/^\d+:[A-Za-z0-9_-]+$/', $token) || !preg_match('/^-?\d+$/', (string)$chat)) reply(503, false);
 
 // Limit requests using an IP hash, without storing phone numbers or message bodies.
-$rateDir = sys_get_temp_dir() . '/verto-leads-' . substr(hash('sha256', __DIR__), 0, 12);
+$rateDir = getenv('VERTO_LEAD_RATE_DIR') ?: dirname($configPath) . '/rate-limit';
 if (!is_dir($rateDir) && !@mkdir($rateDir, 0700, true) && !is_dir($rateDir)) reply(503, false);
 $rateFile = $rateDir . '/' . hash('sha256', $_SERVER['REMOTE_ADDR'] ?? 'unknown');
 $handle = @fopen($rateFile, 'c+');
