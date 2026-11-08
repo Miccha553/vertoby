@@ -234,3 +234,30 @@
 /* Light panel for the "Что делаем" block. */
 .service-page-details{background:var(--white);border:1px solid rgba(222,223,217,.82);border-radius:28px;padding:64px 56px 112px}
 @media(max-width:760px){.service-page-details{border-radius:22px;padding:46px 20px 78px}}
+
+/* Home: wider copy, complete screenshot sources, and a prominent portfolio link. */
+@media(min-width:761px){
+  .hero-lead{max-width:1040px}
+  .hero-terms{max-width:980px}
+  #work .work-footer{display:grid;grid-template-columns:1fr;gap:22px}
+  #work .work-footer .button{width:100%;min-height:62px;font-size:16px}
+}
+.showcase-item{text-align:left;padding:0;color:inherit;font:inherit;cursor:pointer}
+.showcase-center img,.showcase-right img{object-fit:cover;object-position:top center}
+.footer-unp{display:block;margin-top:5px;white-space:nowrap}
+.project-preview-hint{position:absolute;right:14px;bottom:14px;border-radius:8px;padding:7px 11px;background:#fff;color:var(--ink);box-shadow:0 2px 12px #0002;font-size:11px;font-weight:700}
+
+/* A scrollable dialog keeps the form accessible above mobile keyboards. */
+.contact-dialog{overflow-y:auto;max-height:calc(100dvh - 32px)}
+.contact-dialog-bar{position:sticky;top:0;z-index:2}
+.contact-dialog [hidden]{display:none!important}
+.contact-dialog-form{padding:24px 30px 28px;background:var(--paper);border-radius:0}
+.contact-dialog-form>label{font-size:14px}
+.contact-dialog-form>input{font-size:16px;min-height:48px}
+.contact-dialog-form>.consent{margin:4px 0 22px;font-size:13px}
+.contact-dialog-form>.button{font-size:15px;justify-content:center}
+.contact-dialog-back{border:0;background:none;padding:0;margin-bottom:22px;color:var(--purple);font-size:13px;text-decoration:underline;text-underline-offset:4px}
+@media(max-width:760px){
+  .contact-dialog{max-height:calc(100dvh - 20px)}
+  .contact-dialog-form{padding:22px 20px 24px}
+}
