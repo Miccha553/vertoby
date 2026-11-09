@@ -322,4 +322,10 @@
     if (!link || link.closest('.contact-dialog') || link.closest('.contact-form')) return;
     event.preventDefault(); contactPopup(link);
   });
+  // Meta Pixel Lead on messenger buttons (Telegram, Viber), site-wide including the contact dialog.
+  document.addEventListener('click', event => {
+    const link = event.target.closest('a[href^="https://t.me/"], a[href^="viber:"]');
+    if (!link || typeof window.fbq !== 'function') return;
+    window.fbq('track','Lead',{content_name:link.href.startsWith('viber:') ? 'viber' : 'telegram'});
+  });
 })();
