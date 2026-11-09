@@ -261,3 +261,5 @@
   .contact-dialog{max-height:calc(100dvh - 20px)}
   .contact-dialog-form{padding:22px 20px 24px}
 }
+
+.contact-form>.contact-field-hint{margin:-9px 0 18px;font-size:12px;line-height:1.5;color:var(--muted)}
