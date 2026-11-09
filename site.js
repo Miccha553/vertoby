@@ -107,6 +107,24 @@
     ai: 'Хочу обсудить внедрение ИИ в бизнес'
   };
   const requestedService = new URLSearchParams(location.search).get('service');
+  const normalizeName = value => value.normalize('NFC').replace(/[’‘ʼ]/gu, "'").replace(/[‐‑]/gu, '-').replace(/\s+/gu, ' ').replace(/ *([-']) */gu, '$1');
+  const validName = value => Array.from(value).length >= 2 && Array.from(value).length <= 80 && /^\p{L}[\p{L}\p{M}]*(?:[ '-]\p{L}[\p{L}\p{M}]*)*$/u.test(value);
+  const nameError = 'Укажите имя от 2 до 80 символов: только буквы, пробел, дефис или апостроф.';
+  const phoneError = 'Укажите белорусский номер целиком: +375 XX XXX-XX-XX.';
+  const phonePrefixLength = digits => digits.startsWith('00375') ? 5 : digits.startsWith('375') ? 3 : digits.startsWith('80') ? 2 : 0;
+  const nationalPhone = value => {
+    const raw = value.trim();
+    if (!/^\+?[\d\s()-]*$/.test(raw)) return null;
+    const digits = value.replace(/\D/g, '');
+    let national;
+    if (digits.startsWith('00375') && !raw.startsWith('+')) national = digits.slice(5);
+    else if (digits.startsWith('375')) national = digits.slice(3);
+    else if (digits.startsWith('80') && !raw.startsWith('+')) national = digits.slice(2);
+    else if (raw.startsWith('+')) return null;
+    else national = digits;
+    return national.length <= 9 ? national : null;
+  };
+  const formatPhone = digits => '+375 ' + digits.slice(0, 2) + (digits.length > 2 ? ' ' + digits.slice(2, 5) : '') + (digits.length > 5 ? '-' + digits.slice(5, 7) : '') + (digits.length > 7 ? '-' + digits.slice(7, 9) : '');
   const contactPopup = (() => {
     const dialog = document.createElement('dialog');
     dialog.className = 'contact-dialog';
@@ -128,9 +146,10 @@
       <form class="contact-form contact-dialog-form" hidden>
         <button class="contact-dialog-back" type="button">← Другие способы связи</button>
         <label for="popup-name">Ваше имя</label>
-        <input id="popup-name" name="name" type="text" autocomplete="name" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
+        <input id="popup-name" name="name" type="text" autocomplete="name" autocapitalize="words" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
         <label for="popup-phone">Номер телефона</label>
-        <input id="popup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+375 29 123-45-67" maxlength="30" required>
+        <input id="popup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="popup-phone-hint" maxlength="30" required>
+        <p id="popup-phone-hint" class="contact-field-hint">Белорусский номер: +375 и 9 цифр.</p>
         <div class="honeypot" aria-hidden="true"><label>Сайт<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
         <label class="consent"><input type="checkbox" name="consent" required><span>Соглашаюсь с <a href="${base}privacy-policy/" target="_blank" rel="noopener">политикой конфиденциальности</a> и обработкой имени и телефона для ответа на заявку.</span></label>
         <button class="button" type="submit">Отправить заявку</button>
@@ -142,6 +161,80 @@
     const form = dialog.querySelector('form');
     const status = form.querySelector('.form-status');
     const submit = form.querySelector('[type="submit"]');
+    const nameField = form.elements.name;
+    const phoneField = form.elements.phone;
+    const cleanName = () => {
+      const before = nameField.value.slice(0, nameField.selectionStart);
+      const clean = value => normalizeName(value).replace(/[^\p{L}\p{M} '-]/gu, '');
+      const cursor = clean(before).length;
+      nameField.value = clean(nameField.value);
+      nameField.setSelectionRange(cursor, cursor);
+      nameField.setCustomValidity(nameField.value && !validName(nameField.value.trim()) ? nameError : '');
+    };
+    nameField.addEventListener('input', event => { if (!event.isComposing) cleanName(); });
+    nameField.addEventListener('compositionend', cleanName);
+    nameField.addEventListener('blur', () => {
+      nameField.value = normalizeName(nameField.value).trim();
+      nameField.setCustomValidity(nameField.value && !validName(nameField.value) ? nameError : '');
+    });
+    nameField.addEventListener('paste', event => {
+      const text = normalizeName(event.clipboardData?.getData('text') || '');
+      if (/[^\p{L}\p{M} '-]/u.test(text)) {
+        event.preventDefault(); nameField.setCustomValidity(nameError); nameField.reportValidity();
+      }
+    });
+    const maskPhone = (atEnd = false) => {
+      const raw = phoneField.value;
+      const national = nationalPhone(raw);
+      if (national === null) {
+        phoneField.setCustomValidity(phoneError);
+        return;
+      }
+      const rawDigitsBeforeCursor = raw.slice(0, phoneField.selectionStart).replace(/\D/g, '').length;
+      const allDigits = raw.replace(/\D/g, '');
+      const prefix = phonePrefixLength(allDigits);
+      const count = Math.max(0, rawDigitsBeforeCursor - prefix);
+      phoneField.value = formatPhone(national);
+      let cursor = 5;
+      for (let found = 0; cursor < phoneField.value.length && found < count; cursor++) {
+        if (/\d/.test(phoneField.value[cursor])) found++;
+      }
+      if (atEnd) cursor = phoneField.value.length;
+      phoneField.setSelectionRange(cursor, cursor);
+      phoneField.setCustomValidity(/^[1-9]\d{8}$/.test(national) ? '' : phoneError);
+    };
+    phoneField.addEventListener('focus', () => { if (!phoneField.value) { phoneField.value = '+375 '; phoneField.setSelectionRange(5, 5); } });
+    phoneField.addEventListener('input', () => maskPhone());
+    phoneField.addEventListener('blur', () => { if (phoneField.value.trim() === '+375') { phoneField.value = ''; phoneField.setCustomValidity(''); } });
+    phoneField.addEventListener('paste', event => {
+      event.preventDefault();
+      const raw = (event.clipboardData?.getData('text') || '').trim();
+      const national = nationalPhone(raw);
+      const allDigits = raw.replace(/\D/g, '');
+      if (national === null || allDigits.length > phonePrefixLength(allDigits) + 9) {
+        phoneField.setCustomValidity(phoneError); phoneField.reportValidity(); return;
+      }
+      phoneField.value = formatPhone(national);
+      maskPhone(true);
+    });
+    phoneField.addEventListener('beforeinput', event => {
+      if (phoneField.selectionStart < 5 && phoneField.selectionEnd <= 5) {
+        if (event.inputType.startsWith('delete')) { event.preventDefault(); return; }
+        phoneField.setSelectionRange(5, 5);
+      }
+    });
+    phoneField.addEventListener('keydown', event => {
+      const start = phoneField.selectionStart;
+      if (phoneField.selectionEnd !== start || !['Backspace', 'Delete'].includes(event.key)) return;
+      if (event.key === 'Backspace' && start <= 5) { event.preventDefault(); return; }
+      let digit = event.key === 'Backspace' ? start - 1 : start;
+      const direction = event.key === 'Backspace' ? -1 : 1;
+      while (digit >= 5 && digit < phoneField.value.length && !/\d/.test(phoneField.value[digit])) digit += direction;
+      if (digit < 5 || digit >= phoneField.value.length) return;
+      event.preventDefault();
+      phoneField.setRangeText('', digit, digit + 1, 'start');
+      maskPhone();
+    });
     let lastTrigger;
     let interest = '';
     let opened = performance.now();
@@ -167,19 +260,15 @@
     });
     form.addEventListener('submit', async event => {
       event.preventDefault();
-      if (submitting || !form.reportValidity()) return;
+      if (submitting) return;
+      nameField.value = normalizeName(nameField.value).trim();
+      nameField.setCustomValidity(validName(nameField.value) ? '' : nameError);
+      const national = nationalPhone(phoneField.value);
+      phoneField.setCustomValidity(national !== null && /^[1-9]\d{8}$/.test(national) ? '' : phoneError);
+      if (!form.reportValidity()) return;
       const fields = new FormData(form);
       const name = String(fields.get('name') || '').trim();
-      const rawPhone = String(fields.get('phone') || '').trim();
-      let digits = rawPhone.replace(/\D/g, '');
-      if (digits.length === 9 && !rawPhone.startsWith('+')) digits = '375' + digits;
-      status.className = 'form-status error';
-      if (name.length < 2) { status.textContent = 'Пожалуйста, укажите ваше имя.'; form.elements.name.focus(); return; }
-      if (!/^[0-9+()\s-]+$/.test(rawPhone) || !/^[1-9]\d{6,14}$/.test(digits)) {
-        status.textContent = 'Проверьте номер телефона и укажите код страны, например +375 29 123-45-67.';
-        form.elements.phone.focus(); return;
-      }
-      const payload = {name,phone:'+'+digits,interest,page:location.pathname,consent:fields.get('consent') === 'on',website:String(fields.get('website') || ''),tts:Math.round((performance.now()-opened)/1000)};
+      const payload = {name,phone:'+375'+national,interest,page:location.pathname,consent:fields.get('consent') === 'on',website:String(fields.get('website') || ''),tts:Math.round((performance.now()-opened)/1000)};
       submitting = true; submit.disabled = true;
       status.className = 'form-status'; status.textContent = 'Отправляем заявку…';
       const controller = new AbortController();
@@ -191,6 +280,7 @@
         status.className = 'form-status success';
         status.textContent = 'Спасибо! Заявка отправлена. Скоро свяжемся с вами.';
         form.reset();
+        nameField.setCustomValidity(''); phoneField.setCustomValidity('');
         if (typeof window.fbq === 'function') window.fbq('track','Lead');
         if (typeof window.ym === 'function') window.ym(114134032,'reachGoal','lead_form');
       } catch (_) {

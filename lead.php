@@ -27,12 +27,25 @@ foreach (['name', 'phone', 'interest', 'page', 'website'] as $field) {
     if (isset($input[$field]) && !is_string($input[$field])) reply(422, false);
 }
 if (!empty($input['website'])) reply(200, true);
-$name = trim($input['name'] ?? '');
+$rawName = $input['name'] ?? '';
+$name = trim($rawName);
 $phone = trim($input['phone'] ?? '');
 $interest = trim($input['interest'] ?? 'Заявка с сайта');
 $page = $input['page'] ?? '/';
-if (!preg_match('/^.{2,80}$/u', $name) || preg_match('/[\x00-\x1f\x7f]/u', $name)) reply(422, false);
-if (!preg_match('/^\+[1-9]\d{6,14}$/', $phone) || ($input['consent'] ?? false) !== true) reply(422, false);
+// Allow names as text only. Reject markup and control characters even without JavaScript.
+if (preg_match('/[\x00-\x1f\x7f]/', $rawName) || !preg_match('//u', $rawName)) reply(422, false);
+$name = str_replace(['’', '‘', 'ʼ', '‐', '‑'], ["'", "'", "'", '-', '-'], $name);
+$name = preg_replace('/\p{Zs}+/u', ' ', $name);
+$name = trim(preg_replace("/ *([-']) */u", '$1', $name));
+if (class_exists('Normalizer')) $name = Normalizer::normalize($name, Normalizer::FORM_C);
+if (!preg_match("/\A(?=.{2,80}\z)\p{L}[\p{L}\p{M}]*(?:[ '-]\p{L}[\p{L}\p{M}]*)*\z/u", $name)) reply(422, false);
+if (!preg_match('/\A\+?[0-9 ()-]{7,30}\z/', $phone)) reply(422, false);
+$digits = preg_replace('/\D/', '', $phone);
+if (strlen($digits) === 14 && substr($digits, 0, 5) === '00375' && $phone[0] !== '+') $digits = substr($digits, 2);
+elseif (strlen($digits) === 11 && substr($digits, 0, 2) === '80' && $phone[0] !== '+') $digits = '375' . substr($digits, 2);
+elseif (strlen($digits) === 9 && $phone[0] !== '+') $digits = '375' . $digits;
+if (!preg_match('/\A375[1-9]\d{8}\z/', $digits) || ($input['consent'] ?? false) !== true) reply(422, false);
+$phone = '+375 ' . substr($digits, 3, 2) . ' ' . substr($digits, 5, 3) . '-' . substr($digits, 8, 2) . '-' . substr($digits, 10, 2);
 if (strlen($interest) > 1000 || !preg_match('/^\/[^\s?#\x00-\x1f]{0,300}$/u', $page)) reply(422, false);
 
 $configPath = getenv('VERTO_LEAD_CONFIG') ?: dirname(__DIR__) . '/verto-private/telegram.php';
