@@ -277,15 +277,19 @@
 .lead-form>.form-status{margin:14px 0 0;font-size:14px;line-height:1.65}
 .lead-form>.form-status:empty{margin:0}
 .contact-dialog-form>p.lead-form-intro{margin-top:0}
-.contact-alternatives{padding:0 30px 26px}
+.contact-alternatives{margin-top:24px}
 .contact-alternatives>p{border-top:1px solid var(--line);padding-top:18px;font-size:13px}
-.contact-alternatives nav{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:8px}
-.contact-alternatives a{padding:5px 0;font-size:14px;text-decoration:underline;text-underline-offset:4px;color:var(--purple)}
+.contact-alternatives nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.contact-alternatives a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:7px 0;font-size:14px;color:var(--purple);border-radius:8px;transition:background .2s,color .2s}
+.contact-alternatives a:hover{background:var(--lavender);color:var(--ink)}
+.contact-alternatives a span{text-decoration:underline;text-underline-offset:4px}
+.contact-channel-icon{width:20px;height:20px;flex-shrink:0;fill:currentColor}
+.contact-channel-phone{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:760px){
   .services-contact{margin-top:40px}
   .services-contact .contact-copy h2{font-size:34px}
   .contact-copy>.contact-small-note{font-size:14px;margin-top:0}
   .lead-form>label{font-size:14px}
   .lead-form>p.lead-form-intro{font-size:15px}
-  .contact-alternatives{padding:0 20px 22px}
+  .contact-alternatives a{flex-direction:column;gap:6px;min-height:62px;font-size:13px}
 }
