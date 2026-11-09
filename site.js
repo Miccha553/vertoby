@@ -148,7 +148,7 @@
         <label for="popup-name">Ваше имя</label>
         <input id="popup-name" name="name" type="text" autocomplete="name" autocapitalize="words" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
         <label for="popup-phone">Номер телефона</label>
-        <input id="popup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="popup-phone-hint" maxlength="30" required>
+        <input id="popup-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="popup-phone-hint" minlength="17" maxlength="17" pattern="[+]375 [1-9][0-9] [0-9]{3}-[0-9]{2}-[0-9]{2}" required>
         <p id="popup-phone-hint" class="contact-field-hint">Белорусский номер: +375 и 9 цифр.</p>
         <div class="honeypot" aria-hidden="true"><label>Сайт<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
         <label class="consent"><input type="checkbox" name="consent" required><span>Соглашаюсь с <a href="${base}privacy-policy/" target="_blank" rel="noopener">политикой конфиденциальности</a> и обработкой имени и телефона для ответа на заявку.</span></label>
@@ -183,11 +183,16 @@
         event.preventDefault(); nameField.setCustomValidity(nameError); nameField.reportValidity();
       }
     });
+    let acceptedPhone = '';
+    let phoneSelection = [5, 5];
     const maskPhone = (atEnd = false) => {
       const raw = phoneField.value;
       const national = nationalPhone(raw);
       if (national === null) {
-        phoneField.setCustomValidity(phoneError);
+        // Reject invalid edits, including autofill/drop/input events that bypass beforeinput.
+        phoneField.value = acceptedPhone || '+375 ';
+        phoneField.setSelectionRange(...phoneSelection);
+        phoneField.setCustomValidity(/^[1-9]\d{8}$/.test(nationalPhone(phoneField.value) || '') ? '' : phoneError);
         return;
       }
       const rawDigitsBeforeCursor = raw.slice(0, phoneField.selectionStart).replace(/\D/g, '').length;
@@ -202,10 +207,12 @@
       if (atEnd) cursor = phoneField.value.length;
       phoneField.setSelectionRange(cursor, cursor);
       phoneField.setCustomValidity(/^[1-9]\d{8}$/.test(national) ? '' : phoneError);
+      acceptedPhone = phoneField.value;
+      phoneSelection = [cursor, cursor];
     };
-    phoneField.addEventListener('focus', () => { if (!phoneField.value) { phoneField.value = '+375 '; phoneField.setSelectionRange(5, 5); } });
+    phoneField.addEventListener('focus', () => { if (!phoneField.value) { phoneField.value = acceptedPhone = '+375 '; phoneField.setSelectionRange(5, 5); } });
     phoneField.addEventListener('input', () => maskPhone());
-    phoneField.addEventListener('blur', () => { if (phoneField.value.trim() === '+375') { phoneField.value = ''; phoneField.setCustomValidity(''); } });
+    phoneField.addEventListener('blur', () => { if (phoneField.value.trim() === '+375') { phoneField.value = acceptedPhone = ''; phoneField.setCustomValidity(''); } });
     phoneField.addEventListener('paste', event => {
       event.preventDefault();
       const raw = (event.clipboardData?.getData('text') || '').trim();
@@ -218,9 +225,17 @@
       maskPhone(true);
     });
     phoneField.addEventListener('beforeinput', event => {
+      phoneSelection = [phoneField.selectionStart, phoneField.selectionEnd];
+      if (event.inputType === 'insertText' && event.data && /[^0-9]/.test(event.data)) {
+        event.preventDefault(); return;
+      }
       if (phoneField.selectionStart < 5 && phoneField.selectionEnd <= 5) {
         if (event.inputType.startsWith('delete')) { event.preventDefault(); return; }
         phoneField.setSelectionRange(5, 5);
+      }
+      if (event.inputType === 'insertText' && event.data) {
+        const next = phoneField.value.slice(0, phoneField.selectionStart) + event.data + phoneField.value.slice(phoneField.selectionEnd);
+        if (nationalPhone(next) === null) event.preventDefault();
       }
     });
     phoneField.addEventListener('keydown', event => {
@@ -235,6 +250,7 @@
       phoneField.setRangeText('', digit, digit + 1, 'start');
       maskPhone();
     });
+    form.addEventListener('reset', () => { acceptedPhone = ''; phoneSelection = [5, 5]; });
     let lastTrigger;
     let interest = '';
     let opened = performance.now();
