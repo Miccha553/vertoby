@@ -4,10 +4,11 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
+umask(0077);
 
-function reply(int $code, bool $ok): void {
+function reply(int $code, bool $ok, array $extra = []): void {
     http_response_code($code);
-    echo json_encode(['ok' => $ok]);
+    echo json_encode(array_merge(['ok' => $ok], $extra));
     exit;
 }
 
@@ -23,15 +24,18 @@ $raw = file_get_contents('php://input', false, null, 0, 8193);
 if ($raw === false || strlen($raw) > 8192) reply(413, false);
 $input = json_decode($raw, true);
 if (!is_array($input)) reply(400, false);
-foreach (['name', 'phone', 'interest', 'page', 'website'] as $field) {
+foreach (['name', 'phone', 'interest', 'page', 'website', 'request_id', 'source'] as $field) {
     if (isset($input[$field]) && !is_string($input[$field])) reply(422, false);
 }
-if (!empty($input['website'])) reply(200, true);
+if (!empty($input['website'])) reply(200, true, ['accepted' => false]);
 $rawName = $input['name'] ?? '';
 $name = trim($rawName);
 $phone = trim($input['phone'] ?? '');
 $interest = trim($input['interest'] ?? 'Заявка с сайта');
 $page = $input['page'] ?? '/';
+$source = $input['source'] ?? 'popup';
+$requestId = $input['request_id'] ?? bin2hex(random_bytes(16));
+if (!preg_match('/\A[a-f0-9]{32}\z/', $requestId) || !preg_match('/\A[a-z0-9-]{1,60}\z/', $source)) reply(422, false);
 // Allow names as text only. Reject markup and control characters even without JavaScript.
 if (preg_match('/[\x00-\x1f\x7f]/', $rawName) || !preg_match('//u', $rawName)) reply(422, false);
 $name = str_replace(['’', '‘', 'ʼ', '‐', '‑'], ["'", "'", "'", '-', '-'], $name);
@@ -56,7 +60,7 @@ if (is_file($configPath)) {
 }
 $token = getenv('VERTO_TELEGRAM_BOT_TOKEN') ?: ($config['token'] ?? '');
 $chat = getenv('VERTO_TELEGRAM_CHAT_ID') ?: ($config['chat_id'] ?? '436390507');
-if (!is_string($token) || !preg_match('/^\d+:[A-Za-z0-9_-]+$/', $token) || !preg_match('/^-?\d+$/', (string)$chat)) reply(503, false);
+$configured = is_string($token) && preg_match('/^\d+:[A-Za-z0-9_-]+$/', $token) && preg_match('/^-?\d+$/', (string)$chat);
 
 // Limit requests using an IP hash, without storing phone numbers or message bodies.
 $rateDir = getenv('VERTO_LEAD_RATE_DIR') ?: dirname($configPath) . '/rate-limit';
@@ -75,25 +79,80 @@ $attempts[] = $now;
 ftruncate($handle, 0); rewind($handle); fwrite($handle, json_encode($attempts));
 flock($handle, LOCK_UN); fclose($handle);
 
-$text = "Новая заявка с verto.by\n\nИмя: " . $name . "\nТелефон: " . $phone . "\nЗадача: " . $interest . "\nСтраница: " . $page;
-$body = json_encode(['chat_id' => (string)$chat, 'text' => $text, 'disable_web_page_preview' => true], JSON_UNESCAPED_UNICODE);
-$url = 'https://api.telegram.org/bot' . $token . '/sendMessage';
-try {
-    if (function_exists('curl_init')) {
-        $curl = curl_init($url);
-        curl_setopt_array($curl, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_TIMEOUT => 10]);
-        $response = curl_exec($curl);
-        $code = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-        if ($code !== 200) reply(502, false);
-    } else {
-        $context = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\n", 'content' => $body, 'timeout' => 10, 'ignore_errors' => true]]);
-        $response = @file_get_contents($url, false, $context);
-    }
-    $result = is_string($response) ? json_decode($response, true) : null;
-    if (!is_array($result) || ($result['ok'] ?? false) !== true) reply(502, false);
-} catch (Throwable $error) {
-    // Never return or log the request URL: it contains the bot token.
-    reply(502, false);
+// Save every accepted lead before contacting Telegram. This directory must be private.
+$leadDir = getenv('VERTO_LEAD_STORAGE_DIR') ?: dirname($configPath) . '/leads';
+if (!is_dir($leadDir) && !@mkdir($leadDir, 0700, true) && !is_dir($leadDir)) reply(503, false);
+$leadDir = realpath($leadDir);
+$publicDir = realpath(__DIR__);
+if ($leadDir === false || $publicDir === false || $leadDir === $publicDir || strpos($leadDir, $publicDir . DIRECTORY_SEPARATOR) === 0 || !@chmod($leadDir, 0700)) reply(503, false);
+$leadPath = $leadDir . '/' . $requestId . '.json';
+// A stable request ID prevents a timeout/retry from sending the same lead twice.
+$lock = @fopen($leadDir . '/' . $requestId . '.lock', 'c');
+if (!$lock || !flock($lock, LOCK_EX)) reply(503, false);
+$fingerprint = hash('sha256', json_encode([$name, $phone, $interest, $page, $source], JSON_UNESCAPED_UNICODE));
+if (is_file($leadPath)) {
+    $previous = json_decode((string)@file_get_contents($leadPath), true);
+    if (!is_array($previous) || !isset($previous['fingerprint'])) reply(503, false);
+    if (!hash_equals($previous['fingerprint'], $fingerprint)) reply(409, false);
+    $delivered = ($previous['delivery']['status'] ?? '') === 'sent';
+    reply($delivered ? 200 : 202, true, ['accepted' => true, 'id' => $requestId, 'delivered' => $delivered]);
 }
-reply(200, true);
+function saveLead(string $path, array $record): bool {
+    $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if ($json === false) return false;
+    $temp = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
+    $written = @file_put_contents($temp, $json, LOCK_EX);
+    if ($written !== strlen($json) || !@chmod($temp, 0600) || !@rename($temp, $path)) {
+        @unlink($temp);
+        return false;
+    }
+    return true;
+}
+$record = [
+    'id' => $requestId,
+    'created_at' => gmdate('c'),
+    'name' => $name,
+    'phone' => $phone,
+    'interest' => $interest,
+    'page' => $page,
+    'source' => $source,
+    'consent' => true,
+    'fingerprint' => $fingerprint,
+    'delivery' => ['status' => 'pending'],
+];
+if (!saveLead($leadPath, $record)) reply(503, false);
+
+$text = "Новая заявка с verto.by\n\nИмя: " . $name . "\nТелефон: " . $phone . "\nЗадача: " . $interest . "\nСтраница: " . $page . "\nНомер заявки: " . $requestId;
+$body = json_encode(['chat_id' => (string)$chat, 'text' => $text, 'disable_web_page_preview' => true], JSON_UNESCAPED_UNICODE);
+$delivered = false;
+$record['delivery'] = ['status' => 'failed', 'attempted_at' => gmdate('c'), 'reason' => $configured ? 'telegram_unavailable' : 'not_configured'];
+if ($configured) {
+    $url = 'https://api.telegram.org/bot' . $token . '/sendMessage';
+    try {
+        $code = 0;
+        if (function_exists('curl_init')) {
+            $curl = curl_init($url);
+            curl_setopt_array($curl, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_TIMEOUT => 10]);
+            $response = curl_exec($curl);
+            $code = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_close($curl);
+        } else {
+            $context = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\n", 'content' => $body, 'timeout' => 10, 'ignore_errors' => true]]);
+            $response = @file_get_contents($url, false, $context);
+        }
+        $result = is_string($response) ? json_decode($response, true) : null;
+        $delivered = is_array($result) && ($result['ok'] ?? false) === true;
+        if ($delivered) {
+            $record['delivery'] = ['status' => 'sent', 'sent_at' => gmdate('c'), 'message_id' => $result['result']['message_id'] ?? null];
+        } elseif ($code > 0) {
+            $record['delivery']['http_status'] = $code;
+        }
+    } catch (Throwable $error) {
+        // Never return or log the request URL or exception: they can contain the bot token.
+    }
+}
+// If this update fails, the original pending record still contains the complete lead.
+if (!saveLead($leadPath, $record)) $delivered = false;
+flock($lock, LOCK_UN); fclose($lock);
+// Acceptance means a durable private copy exists, including when Telegram is unavailable.
+reply($delivered ? 200 : 202, true, ['accepted' => true, 'id' => $requestId, 'delivered' => $delivered]);

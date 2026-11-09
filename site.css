@@ -263,3 +263,29 @@
 }
 
 .contact-form>.contact-field-hint{margin:-9px 0 18px;font-size:12px;line-height:1.5;color:var(--muted)}
+
+/* The form is the primary contact option, in the dialog and on the page. */
+.services-contact{margin-top:64px;margin-bottom:0;background:#eeeaf5}
+.services-contact .contact-copy h2{font-size:clamp(32px,3.3vw,46px)}
+.contact-copy>.contact-small-note{margin-top:auto;margin-bottom:0;font-size:15px}
+.lead-form{align-self:center}
+.lead-form>label{font-size:14px}
+.lead-form>input{font-size:16px;min-height:50px}
+.lead-form>p.lead-form-intro{margin:10px 0 24px;font-size:15px;line-height:1.7}
+.lead-form>.consent{font-size:13px;margin:4px 0 24px}
+.lead-form>.button{justify-content:center;font-size:15px;min-height:52px}
+.lead-form>.form-status{margin:14px 0 0;font-size:14px;line-height:1.65}
+.lead-form>.form-status:empty{margin:0}
+.contact-dialog-form>p.lead-form-intro{margin-top:0}
+.contact-alternatives{padding:0 30px 26px}
+.contact-alternatives>p{border-top:1px solid var(--line);padding-top:18px;font-size:13px}
+.contact-alternatives nav{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:8px}
+.contact-alternatives a{padding:5px 0;font-size:14px;text-decoration:underline;text-underline-offset:4px;color:var(--purple)}
+@media(max-width:760px){
+  .services-contact{margin-top:40px}
+  .services-contact .contact-copy h2{font-size:34px}
+  .contact-copy>.contact-small-note{font-size:14px;margin-top:0}
+  .lead-form>label{font-size:14px}
+  .lead-form>p.lead-form-intro{font-size:15px}
+  .contact-alternatives{padding:0 20px 22px}
+}

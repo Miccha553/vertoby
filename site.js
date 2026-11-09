@@ -125,40 +125,8 @@
     return national.length <= 9 ? national : null;
   };
   const formatPhone = digits => '+375 ' + digits.slice(0, 2) + (digits.length > 2 ? ' ' + digits.slice(2, 5) : '') + (digits.length > 5 ? '-' + digits.slice(5, 7) : '') + (digits.length > 7 ? '-' + digits.slice(7, 9) : '');
-  const contactPopup = (() => {
-    const dialog = document.createElement('dialog');
-    dialog.className = 'contact-dialog';
-    dialog.setAttribute('aria-labelledby', 'contact-dialog-title');
-    dialog.innerHTML = `
-      <div class="contact-dialog-bar">
-        <div><p class="eyebrow">СВЯЗЬ С VERTO</p><h2 id="contact-dialog-title">Обсудим вашу задачу</h2></div>
-        <button class="dialog-close contact-dialog-close" type="button" aria-label="Закрыть окно">✕</button>
-      </div>
-      <div class="contact-dialog-choice">
-        <p class="contact-dialog-lead">Выберите удобный способ связи — ответим и уточним задачу.</p>
-        <div class="contact-dialog-options">
-          <a class="contact-dialog-option" href="tel:+375333054152"><span class="contact-dialog-option-icon" aria-hidden="true">☎</span><span><strong>Позвонить</strong><small>+375 33 305-41-52</small></span><span aria-hidden="true">↗</span></a>
-          <a class="contact-dialog-option" href="https://t.me/Verto_digital" target="_blank" rel="noopener"><span class="contact-dialog-option-icon" aria-hidden="true">↗</span><span><strong>Telegram</strong><small>@Verto_digital</small></span><span aria-hidden="true">↗</span></a>
-          <a class="contact-dialog-option" href="viber://chat?number=%2B375333054152"><span class="contact-dialog-option-icon" aria-hidden="true">✦</span><span><strong>Viber</strong><small>Написать по номеру телефона</small></span><span aria-hidden="true">↗</span></a>
-        </div>
-        <button class="contact-dialog-form-link" type="button">Оставить заявку через форму</button>
-      </div>
-      <form class="contact-form contact-dialog-form" hidden>
-        <button class="contact-dialog-back" type="button">← Другие способы связи</button>
-        <label for="popup-name">Ваше имя</label>
-        <input id="popup-name" name="name" type="text" autocomplete="name" autocapitalize="words" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
-        <label for="popup-phone">Номер телефона</label>
-        <input id="popup-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="popup-phone-hint" minlength="17" maxlength="17" pattern="[+]375 [1-9][0-9] [0-9]{3}-[0-9]{2}-[0-9]{2}" required>
-        <p id="popup-phone-hint" class="contact-field-hint">Белорусский номер: +375 и 9 цифр.</p>
-        <div class="honeypot" aria-hidden="true"><label>Сайт<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-        <label class="consent"><input type="checkbox" name="consent" required><span>Соглашаюсь с <a href="${base}privacy-policy/" target="_blank" rel="noopener">политикой конфиденциальности</a> и обработкой имени и телефона для ответа на заявку.</span></label>
-        <button class="button" type="submit">Отправить заявку</button>
-        <p class="form-status" role="status" aria-live="polite"></p>
-      </form>`;
-    document.body.append(dialog);
-    const title = dialog.querySelector('#contact-dialog-title');
-    const choice = dialog.querySelector('.contact-dialog-choice');
-    const form = dialog.querySelector('form');
+  const newRequestId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  const setupLeadForm = (form, getInterest) => {
     const status = form.querySelector('.form-status');
     const submit = form.querySelector('[type="submit"]');
     const nameField = form.elements.name;
@@ -251,29 +219,11 @@
       maskPhone();
     });
     form.addEventListener('reset', () => { acceptedPhone = ''; phoneSelection = [5, 5]; });
-    let lastTrigger;
-    let interest = '';
     let opened = performance.now();
     let submitting = false;
-    const showForm = show => {
-      choice.hidden = show;
-      form.hidden = !show;
-      dialog.scrollTop = 0;
-      if (show) form.elements.name.focus({preventScroll:true});
-      else dialog.querySelector('.contact-dialog-form-link').focus({preventScroll:true});
-    };
-    dialog.querySelector('.contact-dialog-form-link').addEventListener('click', () => showForm(true));
-    dialog.querySelector('.contact-dialog-back').addEventListener('click', () => showForm(false));
-    dialog.querySelector('.contact-dialog-close').addEventListener('click', () => dialog.close());
-    dialog.addEventListener('click', event => {
-      if (event.target !== dialog) return;
-      const rect = dialog.getBoundingClientRect();
-      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-    });
-    dialog.addEventListener('close', () => {
-      document.body.classList.remove('dialog-open');
-      lastTrigger?.focus({preventScroll:true});
-    });
+    let requestId = newRequestId();
+    let previousPayload = '';
+    form.addEventListener('input', () => { if (!submitting) requestId = newRequestId(); });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (submitting) return;
@@ -284,7 +234,11 @@
       if (!form.reportValidity()) return;
       const fields = new FormData(form);
       const name = String(fields.get('name') || '').trim();
-      const payload = {name,phone:'+375'+national,interest,page:location.pathname,consent:fields.get('consent') === 'on',website:String(fields.get('website') || ''),tts:Math.round((performance.now()-opened)/1000)};
+      const interest = getInterest();
+      const signature = JSON.stringify([name,national,interest]);
+      if (previousPayload && previousPayload !== signature) requestId = newRequestId();
+      previousPayload = signature;
+      const payload = {name,phone:'+375'+national,interest,request_id:requestId,source:form.dataset.source || 'popup',page:location.pathname,consent:fields.get('consent') === 'on',website:String(fields.get('website') || ''),tts:Math.round((performance.now()-opened)/1000)};
       submitting = true; submit.disabled = true;
       status.className = 'form-status'; status.textContent = 'Отправляем заявку…';
       const controller = new AbortController();
@@ -294,26 +248,71 @@
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error('Submission unavailable');
         status.className = 'form-status success';
-        status.textContent = 'Спасибо! Заявка отправлена. Скоро свяжемся с вами.';
+        status.textContent = 'Спасибо! Заявка принята. Скоро свяжемся с вами.';
         form.reset();
+        requestId = newRequestId();
         nameField.setCustomValidity(''); phoneField.setCustomValidity('');
-        if (typeof window.fbq === 'function') window.fbq('track','Lead');
-        if (typeof window.ym === 'function') window.ym(114134032,'reachGoal','lead_form');
+        // Analytics must never turn an accepted application into a visible error.
+        try { if (data.accepted !== false && typeof window.fbq === 'function') window.fbq('track','Lead'); } catch (_) {}
+        try { if (data.accepted !== false && typeof window.ym === 'function') window.ym(114134032,'reachGoal','lead_form'); } catch (_) {}
       } catch (_) {
         status.className = 'form-status error';
-        status.textContent = 'Не удалось отправить заявку. Данные сохранены в форме. Напишите нам в Telegram @Verto_digital или позвоните: +375 33 305-41-52.';
+        status.textContent = 'Не удалось отправить заявку. Проверьте соединение и попробуйте ещё раз — данные остались в форме. Напишите нам в Telegram @Verto_digital или позвоните: +375 33 305-41-52.';
       } finally { clearTimeout(timeout); submitting = false; submit.disabled = false; }
+    });
+    return {prepare() {
+      opened = performance.now();
+      if (!submitting && !nameField.value) { status.textContent = ''; status.className = 'form-status'; }
+    }};
+  };
+  document.querySelectorAll('form[data-lead-form]').forEach(form => setupLeadForm(form, () => form.dataset.interest || 'Заявка с главной страницы'));
+  const contactPopup = (() => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'contact-dialog';
+    dialog.setAttribute('aria-labelledby', 'contact-dialog-title');
+    dialog.innerHTML = `
+      <div class="contact-dialog-bar">
+        <div><p class="eyebrow">СВЯЗЬ С VERTO</p><h2 id="contact-dialog-title">Обсудим вашу задачу</h2></div>
+        <button class="dialog-close contact-dialog-close" type="button" aria-label="Закрыть окно">✕</button>
+      </div>
+      <form class="contact-form lead-form contact-dialog-form" method="post" action="${base}lead.php" data-source="popup">
+        <p class="lead-form-intro">Оставьте имя и номер — свяжемся с вами и обсудим детали.</p>
+        <label for="popup-name">Ваше имя</label>
+        <input id="popup-name" name="name" type="text" autocomplete="name" autocapitalize="words" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
+        <label for="popup-phone">Номер телефона</label>
+        <input id="popup-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="popup-phone-hint" minlength="17" maxlength="17" pattern="[+]375 [1-9][0-9] [0-9]{3}-[0-9]{2}-[0-9]{2}" required>
+        <p id="popup-phone-hint" class="contact-field-hint">Белорусский номер: +375 и 9 цифр.</p>
+        <div class="honeypot" aria-hidden="true"><label>Сайт<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <label class="consent"><input type="checkbox" name="consent" required><span>Соглашаюсь с <a href="${base}privacy-policy/" target="_blank" rel="noopener">политикой конфиденциальности</a> и обработкой имени и телефона для ответа на заявку.</span></label>
+        <button class="button" type="submit">Отправить заявку</button>
+        <p class="form-status" role="status" aria-live="polite"></p>
+      </form>
+      <div class="contact-alternatives"><p>Или свяжитесь с нами напрямую</p><nav aria-label="Другие способы связи"><a href="tel:+375333054152">Позвонить</a><a href="https://t.me/Verto_digital" target="_blank" rel="noopener">Telegram ↗</a><a href="viber://chat?number=%2B375333054152">Viber ↗</a></nav></div>`;
+    document.body.append(dialog);
+    const title = dialog.querySelector('#contact-dialog-title');
+    const form = dialog.querySelector('form');
+    let lastTrigger;
+    let interest = '';
+    const state = setupLeadForm(form, () => interest);
+    dialog.querySelector('.contact-dialog-close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+      document.body.classList.remove('dialog-open');
+      lastTrigger?.focus({preventScroll:true});
     });
     return trigger => {
       lastTrigger = trigger;
       interest = trigger.dataset.interest || serviceInterest[requestedService] || trigger.dataset.popupTitle || 'Заявка с сайта';
       title.textContent = trigger.dataset.interest || trigger.dataset.popupTitle || 'Обсудим вашу задачу';
       if (!dialog.open) {
-        opened = performance.now();
-        choice.hidden = false; form.hidden = true;
-        // Keep the delivery result when a request finishes after the dialog closes.
-        if (!submitting && !form.elements.name.value) { status.textContent = ''; status.className = 'form-status'; }
+        state.prepare();
         dialog.showModal(); document.body.classList.add('dialog-open');
+        dialog.scrollTop = 0;
+        form.elements.name.focus({preventScroll:true});
       }
     };
   })();
