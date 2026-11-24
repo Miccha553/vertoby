@@ -23,8 +23,10 @@
 .promo-price-card li{position:relative;padding-left:20px;font-size:14px;line-height:1.55}
 .promo-price-card li::before{content:"";position:absolute;left:0;top:.6em;width:8px;height:8px;border-radius:50%;background:var(--purple)}
 .promo-footnote{font-size:12px;line-height:1.7;color:var(--muted);max-width:820px;margin-bottom:64px}
-.promo-ended .promo-status,.promo-ended #promo-form,.promo-ended .promo-hero .button,.promo-ended .header-cta,.promo-ended .promo-hero .service-page-note,.promo-ended .promo-hero .service-page-intro{display:none}
+.promo-ended .promo-status,.promo-ended .promo-form-section,.promo-ended .promo-hero .button,.promo-ended .header-cta,.promo-ended .promo-hero .service-page-note,.promo-ended .promo-hero .service-page-intro{display:none}
 .promo-ended-note{display:none;margin-top:44px;padding:20px 24px;border-radius:var(--radius);background:var(--lavender);font-weight:650}
 .promo-ended .promo-ended-note{display:block}
 @media (max-width:900px){.promo-status{grid-template-columns:1fr}.promo-offer{grid-template-columns:1fr;gap:32px;padding-bottom:64px}}
 @media (max-width:520px){.promo-price-grid{grid-template-columns:1fr}.promo-timer,.promo-spots{padding:18px}.promo-timer-grid{gap:8px}}
+.promo-hero+.promo-form-section{margin-top:8px;margin-bottom:90px}
+@media (max-width:900px){.promo-hero+.promo-form-section{margin-bottom:64px}}

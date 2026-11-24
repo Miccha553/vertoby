@@ -12,8 +12,7 @@
   var spots = Math.max(0, Math.min(SPOTS_TOTAL, SPOTS_LEFT));
   var spotsEl = q('[data-promo-spots]');
   if (spotsEl) spotsEl.textContent = spots;
-  var inline = q('[data-promo-spots-inline]');
-  if (inline) inline.textContent = spots;
+  document.querySelectorAll('[data-promo-spots-inline]').forEach(function (el) { el.textContent = spots; });
   var bar = q('[data-promo-spots-bar]');
   if (bar) bar.style.width = (spots / SPOTS_TOTAL * 100) + '%';
 

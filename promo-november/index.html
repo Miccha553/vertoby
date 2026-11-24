@@ -83,6 +83,22 @@
       <p class="service-page-note">* 1 BYN — стоимость запуска рекламы. Сами показы (рекламный бюджет) оплачиваются отдельно, напрямую в рекламную систему, а доступ к кабинету остаётся у вас. Акция действует для 15 компаний до 30 ноября 2026 года включительно.</p>
     </section>
 
+    <section class="contact-section wrap promo-form-section" id="promo-form-top" aria-labelledby="promo-contact-top-title">
+      <div class="contact-copy"><p class="eyebrow">ОСТАЛОСЬ <span data-promo-spots-inline>15</span> ИЗ 15 МЕСТ</p><h2 id="promo-contact-top-title">Займите место<br><span>в акции.</span></h2><p>Оставьте имя и номер. Мы свяжемся, уточним задачу и, если место свободно, закрепим за вами условия: сайт за 500 BYN и запуск рекламы за 1 BYN.*</p><p class="contact-small-note">Акция до 30 ноября 2026 года включительно или до заполнения всех 15 мест.</p></div>
+      <form class="contact-form lead-form" method="post" action="../lead.php" data-lead-form data-source="promo-november-top" data-interest="Акция ноября: сайт за 500 BYN + реклама за 1 BYN" aria-labelledby="promo-form-top-title">
+        <h3 id="promo-form-top-title">Заявка на участие в акции</h3><p class="lead-form-intro">Оставьте заявку — при звонке подтвердим, что место свободно.</p>
+        <label for="promo-top-name">Ваше имя</label>
+        <input id="promo-top-name" name="name" type="text" autocomplete="name" autocapitalize="words" placeholder="Как к вам обращаться?" minlength="2" maxlength="80" required>
+        <label for="promo-top-phone">Номер телефона</label>
+        <input id="promo-top-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+375 XX XXX-XX-XX" aria-describedby="promo-top-phone-hint" minlength="17" maxlength="17" pattern="[+]375 [1-9][0-9] [0-9]{3}-[0-9]{2}-[0-9]{2}" required>
+        <p id="promo-top-phone-hint" class="contact-field-hint">Белорусский номер: +375 и 9 цифр.</p>
+        <div class="honeypot" aria-hidden="true"><label>Сайт<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <label class="consent"><input type="checkbox" name="consent" required><span>Соглашаюсь с <a href="../privacy-policy/" target="_blank" rel="noopener">политикой конфиденциальности</a> и обработкой имени и телефона для ответа на заявку.</span></label>
+        <button class="button" type="submit">Занять место</button>
+        <p class="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
     <section class="service-page-details wrap" aria-labelledby="promo-details-title">
       <div class="section-heading"><p class="eyebrow">ЧТО ВЫ ПОЛУЧАЕТЕ</p><div><h2 id="promo-details-title">Сайт, который сразу готов приводить заявки.</h2><p class="section-lead">Не просто красивая страница, а связка «предложение — сайт — реклама», собранная вокруг одной задачи: первые обращения от клиентов.</p></div></div>
       <div class="service-detail-list">
@@ -111,7 +127,7 @@
       </div>
     </section>
 
-    <section class="contact-section wrap" id="promo-form" aria-labelledby="promo-contact-title">
+    <section class="contact-section wrap promo-form-section" id="promo-form" aria-labelledby="promo-contact-title">
       <div class="contact-copy"><p class="eyebrow">ОСТАЛОСЬ <span data-promo-spots-inline>15</span> ИЗ 15 МЕСТ</p><h2 id="promo-contact-title">Займите место<br><span>в акции.</span></h2><p>Оставьте имя и номер. Мы свяжемся, уточним задачу и, если место свободно, закрепим за вами условия: сайт за 500 BYN и запуск рекламы за 1 BYN.*</p><p class="contact-small-note">Акция до 30 ноября 2026 года включительно или до заполнения всех 15 мест.</p></div>
       <form class="contact-form lead-form" method="post" action="../lead.php" data-lead-form data-source="promo-november" data-interest="Акция ноября: сайт за 500 BYN + реклама за 1 BYN" aria-labelledby="promo-form-title">
         <h3 id="promo-form-title">Заявка на участие в акции</h3><p class="lead-form-intro">Оставьте заявку — при звонке подтвердим, что место свободно.</p>
