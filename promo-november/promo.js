@@ -3,7 +3,7 @@
   var DEADLINE = Date.parse('2026-11-30T23:59:59+03:00');
   // Всего мест в акции и сколько осталось. Меняйте SPOTS_LEFT вручную по реальному числу принятых заявок.
   var SPOTS_TOTAL = 15;
-  var SPOTS_LEFT = 15;
+  var SPOTS_LEFT = 11;
 
   var root = document.documentElement;
   var q = function (s) { return document.querySelector(s); };
