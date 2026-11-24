@@ -17,11 +17,14 @@
   var bar = q('[data-promo-spots-bar]');
   if (bar) bar.style.width = (spots / SPOTS_TOTAL * 100) + '%';
 
+  function end() { root.classList.add('promo-ended'); }
+  if (spots === 0) end();
+
   var d = q('[data-promo-days]'), h = q('[data-promo-hours]'), m = q('[data-promo-minutes]'), s = q('[data-promo-seconds]');
   function tick() {
     var left = DEADLINE - Date.now();
     if (left <= 0) {
-      root.classList.add('promo-ended');
+      end();
       return false;
     }
     var sec = Math.floor(left / 1000);
@@ -31,7 +34,7 @@
     if (s) s.textContent = pad(sec % 60);
     return true;
   }
-  if (tick()) {
+  if (!root.classList.contains('promo-ended') && tick()) {
     var timer = setInterval(function () { if (!tick()) clearInterval(timer); }, 1000);
   }
 })();
