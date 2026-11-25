@@ -111,6 +111,19 @@
   const validName = value => Array.from(value).length >= 2 && Array.from(value).length <= 80 && /^\p{L}[\p{L}\p{M}]*(?:[ '-]\p{L}[\p{L}\p{M}]*)*$/u.test(value);
   const nameError = 'Укажите имя от 2 до 80 символов: только буквы, пробел, дефис или апостроф.';
   const phoneError = 'Укажите белорусский номер целиком: +375 XX XXX-XX-XX.';
+  const leadAttribution = () => {
+    const query = new URLSearchParams(location.search);
+    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
+    const attribution = Object.fromEntries(utmKeys.flatMap(key => {
+      const value = Array.from((query.get(key) || '').replace(/[\u0000-\u001f\u007f]/g, '').trim()).slice(0, 120).join('');
+      return value ? [[key, value]] : [];
+    }));
+    for (const key of ['fbclid', 'gclid', 'yclid']) {
+      const id = query.get(key);
+      if (id && /^[\x21-\x7e]{1,512}$/.test(id)) attribution[key] = id;
+    }
+    return attribution;
+  };
   const phonePrefixLength = digits => digits.startsWith('00375') ? 5 : digits.startsWith('375') ? 3 : digits.startsWith('80') ? 2 : 0;
   const nationalPhone = value => {
     const raw = value.trim();
@@ -136,7 +149,8 @@
       </nav>
     </div>`;
   const setupLeadForm = (form, getInterest) => {
-    form.insertAdjacentHTML('beforeend', contactAlternatives);
+    const isListy = form.dataset.source === 'listy';
+    if (!isListy) form.insertAdjacentHTML('beforeend', contactAlternatives);
     const status = form.querySelector('.form-status');
     const submit = form.querySelector('[type="submit"]');
     const nameField = form.elements.name;
@@ -245,10 +259,12 @@
       const fields = new FormData(form);
       const name = String(fields.get('name') || '').trim();
       const interest = getInterest();
-      const signature = JSON.stringify([name,national,interest]);
+      const attribution = isListy ? leadAttribution() : {};
+      const signature = JSON.stringify([name,national,interest,attribution]);
       if (previousPayload && previousPayload !== signature) requestId = newRequestId();
       previousPayload = signature;
       const payload = {name,phone:'+375'+national,interest,request_id:requestId,source:form.dataset.source || 'popup',page:location.pathname,consent:fields.get('consent') === 'on',website:String(fields.get('website') || ''),tts:Math.round((performance.now()-opened)/1000)};
+      if (isListy) payload.attribution = attribution;
       submitting = true; submit.disabled = true;
       status.className = 'form-status'; status.textContent = 'Отправляем заявку…';
       const controller = new AbortController();
@@ -256,7 +272,7 @@
       try {
         const response = await fetch(`${base}lead.php`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
         const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error('Submission unavailable');
+        if (!response.ok || !data.ok || (isListy && typeof data.accepted !== 'boolean')) throw new Error('Submission unavailable');
         status.className = 'form-status success';
         status.textContent = 'Спасибо! Заявка принята. Скоро свяжемся с вами.';
         form.reset();
@@ -270,6 +286,8 @@
         status.textContent = 'Не удалось отправить заявку. Проверьте соединение и попробуйте ещё раз — данные остались в форме. Напишите нам в Telegram @Verto_digital или позвоните: +375 33 305-41-52.';
       } finally { clearTimeout(timeout); submitting = false; submit.disabled = false; }
     });
+    const controls = form.querySelector('[data-lead-controls]');
+    if (controls) controls.disabled = false;
     return {prepare() {
       opened = performance.now();
       if (!submitting && !nameField.value) { status.textContent = ''; status.className = 'form-status'; }

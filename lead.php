@@ -36,6 +36,20 @@ $page = $input['page'] ?? '/';
 $source = $input['source'] ?? 'popup';
 $requestId = $input['request_id'] ?? bin2hex(random_bytes(16));
 if (!preg_match('/\A[a-f0-9]{32}\z/', $requestId) || !preg_match('/\A[a-z0-9-]{1,60}\z/', $source)) reply(422, false);
+$attribution = [];
+if ($source === 'listy') {
+    $campaignFields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id', 'fbclid', 'gclid', 'yclid'];
+    $campaign = $input['attribution'] ?? [];
+    if (!is_array($campaign) || array_diff(array_keys($campaign), $campaignFields)) reply(422, false);
+    foreach ($campaignFields as $key) {
+        if (!array_key_exists($key, $campaign)) continue;
+        $value = $campaign[$key];
+        $pattern = in_array($key, ['fbclid', 'gclid', 'yclid'], true)
+            ? '/\A[\x21-\x7e]{1,512}\z/' : '/\A[^\x00-\x1f\x7f]{1,120}\z/u';
+        if (!is_string($value) || !preg_match($pattern, $value)) reply(422, false);
+        $attribution[$key] = $value;
+    }
+}
 // Allow names as text only. Reject markup and control characters even without JavaScript.
 if (preg_match('/[\x00-\x1f\x7f]/', $rawName) || !preg_match('//u', $rawName)) reply(422, false);
 $name = str_replace(['’', '‘', 'ʼ', '‐', '‑'], ["'", "'", "'", '-', '-'], $name);
@@ -89,7 +103,9 @@ $leadPath = $leadDir . '/' . $requestId . '.json';
 // A stable request ID prevents a timeout/retry from sending the same lead twice.
 $lock = @fopen($leadDir . '/' . $requestId . '.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX)) reply(503, false);
-$fingerprint = hash('sha256', json_encode([$name, $phone, $interest, $page, $source], JSON_UNESCAPED_UNICODE));
+$leadFields = [$name, $phone, $interest, $page, $source];
+if ($source === 'listy') $leadFields[] = $attribution;
+$fingerprint = hash('sha256', json_encode($leadFields, JSON_UNESCAPED_UNICODE));
 if (is_file($leadPath)) {
     $previous = json_decode((string)@file_get_contents($leadPath), true);
     if (!is_array($previous) || !isset($previous['fingerprint'])) reply(503, false);
@@ -120,9 +136,14 @@ $record = [
     'fingerprint' => $fingerprint,
     'delivery' => ['status' => 'pending'],
 ];
+if ($attribution) $record['attribution'] = $attribution;
 if (!saveLead($leadPath, $record)) reply(503, false);
 
 $text = "Новая заявка с verto.by\n\nИмя: " . $name . "\nТелефон: " . $phone . "\nЗадача: " . $interest . "\nСтраница: " . $page . "\nНомер заявки: " . $requestId;
+if ($attribution) {
+    $text .= "\n\nРекламная атрибуция";
+    foreach ($attribution as $key => $value) $text .= "\n" . $key . ': ' . $value;
+}
 $body = json_encode(['chat_id' => (string)$chat, 'text' => $text, 'disable_web_page_preview' => true], JSON_UNESCAPED_UNICODE);
 $delivered = false;
 $record['delivery'] = ['status' => 'failed', 'attempted_at' => gmdate('c'), 'reason' => $configured ? 'telegram_unavailable' : 'not_configured'];
